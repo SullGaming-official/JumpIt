@@ -1,0 +1,179 @@
+<html>
+<head>
+  <title>Jump It</title>
+  <hta:application id="JumpIt" border="thin" caption="yes" showInTaskbar="yes" singleInstance="yes" />
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: #111;
+      color: #fff;
+      font-family: Consolas;
+    }
+    #gameArea {
+      position: relative;
+      width: 400px;
+      height: 300px;
+      background: #222;
+      margin: 20px auto;
+      border: 2px solid #555;
+      overflow: hidden;
+    }
+    #player {
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      background: #0f0;
+    }
+    .obstacle {
+      position: absolute;
+      width: 20px;
+      height: 60px;
+      background: #f00;
+    }
+    #scoreDisplay, #bestScoreDisplay {
+      text-align: center;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div id="gameArea">
+    <div id="player"></div>
+  </div>
+  <div id="scoreDisplay">Score: 0</div>
+  <div id="bestScoreDisplay">Best: 0</div>
+
+  <script language="javascript">
+    var shell = new ActiveXObject("WScript.Shell");
+    var fso = new ActiveXObject("Scripting.FileSystemObject");
+    var userProfile = shell.ExpandEnvironmentStrings("%USERPROFILE%");
+    var brandedFolder = userProfile + "\\AppData\\Local\\SullGaming\\JumpIt";
+    var scoreFile = brandedFolder + "\\score.txt";
+
+    if (!fso.FolderExists(userProfile + "\\AppData\\Local\\SullGaming")) {
+      fso.CreateFolder(userProfile + "\\AppData\\Local\\SullGaming");
+    }
+    if (!fso.FolderExists(brandedFolder)) {
+      fso.CreateFolder(brandedFolder);
+    }
+
+    var bestScore = 0;
+    if (fso.FileExists(scoreFile)) {
+      var file = fso.OpenTextFile(scoreFile, 1);
+      bestScore = parseInt(file.ReadAll()) || 0;
+      file.Close();
+    }
+
+    var player = document.getElementById("player");
+    var gameArea = document.getElementById("gameArea");
+    var scoreDisplay = document.getElementById("scoreDisplay");
+    var bestScoreDisplay = document.getElementById("bestScoreDisplay");
+    bestScoreDisplay.innerText = "Best: " + Math.floor(bestScore / 50);
+
+    var playerY = 140;
+    var velocityY = 0;
+    var gravity = 1;
+    var jumpStrength = -12;
+    var score = 0;
+    var gameRunning = true;
+    var obstacles = [];
+
+    window.onload = function() {
+      window.focus();
+      document.body.onkeydown = function() {
+        var key = window.event.keyCode;
+        if (key === 32) {
+          if (gameRunning) {
+            velocityY = jumpStrength;
+          } else {
+            restartGame();
+          }
+        }
+      };
+    };
+
+    function spawnObstacle() {
+      var obs = document.createElement("div");
+      obs.className = "obstacle";
+      obs.style.left = "400px";
+      obs.style.top = Math.floor(Math.random() * 240) + "px";
+      gameArea.appendChild(obs);
+      obstacles.push(obs);
+    }
+
+    var spawnInterval = setInterval(spawnObstacle, 1500);
+
+    function loop() {
+      if (!gameRunning) return;
+
+      playerY += velocityY;
+      velocityY += gravity;
+
+      if (playerY < 0) {
+        playerY = 0;
+        endGame("You flew too high.");
+        return;
+      }
+
+      if (playerY > 280) {
+        playerY = 280;
+        endGame("You fell too low.");
+        return;
+      }
+
+      player.style.top = playerY + "px";
+
+      for (var i = 0; i < obstacles.length; i++) {
+        var obs = obstacles[i];
+        var obsX = parseInt(obs.style.left);
+        obs.style.left = (obsX - 5) + "px";
+
+        var obsY = parseInt(obs.style.top);
+        if (obsX < 20 && obsX > 0 && playerY + 20 > obsY && playerY < obsY + 60) {
+          endGame("You hit a kill block.");
+          return;
+        }
+
+        if (obsX < -20) {
+          gameArea.removeChild(obs);
+          obstacles.splice(i, 1);
+          score += 50;
+          scoreDisplay.innerText = "Score: " + Math.floor(score / 50);
+        }
+      }
+
+      setTimeout(loop, 30);
+    }
+
+    function endGame(reason) {
+      gameRunning = false;
+
+      if (score > bestScore) {
+        var file = fso.OpenTextFile(scoreFile, 2, true);
+        file.Write(score);
+        file.Close();
+        bestScore = score;
+        bestScoreDisplay.innerText = "Best: " + Math.floor(bestScore / 50);
+      }
+
+      alert("Game Over! " + reason + "\nPress spacebar to restart.");
+    }
+
+    function restartGame() {
+      for (var i = 0; i < obstacles.length; i++) {
+        gameArea.removeChild(obstacles[i]);
+      }
+      obstacles = [];
+      playerY = 140;
+      velocityY = 0;
+      score = 0;
+      scoreDisplay.innerText = "Score: 0";
+      gameRunning = true;
+      loop();
+    }
+
+    loop();
+  </script>
+</body>
+</html>
